@@ -1,0 +1,107 @@
+function testDoPost() {
+  var fakeEvent = {
+    postData: {
+      contents: JSON.stringify({
+        service: "Internet Kantor",
+        status: "UP",
+        downtime_date: "jul/17/2025",
+        downtime_time: "16:18:08",
+        recovery_date: "jul/17/2025",
+        recovery_time: "16:28:08",
+        duration: "-",
+        note: "Ping kembali normal"
+      })
+    }
+  };
+  Logger.log(doPost(fakeEvent).getContent());
+}
+
+function doPost(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('SLA_LOG');
+    if (!e.postData || !e.postData.contents) {
+      logDebug(sheet, 'No postData received');
+      return ContentService.createTextOutput('Error: No data received');
+    }
+
+    var data = JSON.parse(e.postData.contents);
+    //logDebug(sheet, 'Data received', JSON.stringify(data));
+
+    const monthMap = {
+      jan: '01', feb: '02', mar: '03', apr: '04',
+      may: '05', jun: '06', jul: '07', aug: '08',
+      sep: '09', oct: '10', nov: '11', dec: '12'
+    };
+
+    function convertDate(mikrotikDate, time) {
+      if (mikrotikDate === '-' || time === '-') return '-';
+      var parts = mikrotikDate.toLowerCase().split('/');
+      if (parts.length !== 3) return '-';
+      var month = monthMap[parts[0]];
+      var day = parts[1];
+      var year = parts[2];
+      if (!month) return '-';
+      return `${year}-${month}-${day} ${time}`;
+    }
+
+    var downtimeStart = convertDate(data.downtime_date, data.downtime_time);
+    var recoveryTime = convertDate(data.recovery_date, data.recovery_time);
+    var timestampLog = Utilities.formatDate(new Date(), "Asia/Jakarta", "yyyy-MM-dd HH:mm:ss");
+
+    var duration = 0;
+    if (data.status === "UP") {
+      var lastRow = sheet.getLastRow();
+      var currentService = data.service;
+      var upTime = recoveryTime;
+
+      for (var i = lastRow; i >= 1; i--) {
+        var prevService = sheet.getRange(i, 2).getValue(); // Kolom B
+        var prevStatus = sheet.getRange(i, 3).getValue();  // Kolom C
+
+        if (prevService === currentService && prevStatus === "DOWN") {
+          var downTime = sheet.getRange(i, 4).getValue(); // Kolom D
+
+          //logDebug(sheet, 'Match DOWN found', 'downTime', downTime, 'upTime: ' + upTime);
+
+          var downDateObj = new Date(downTime);
+          var upDateObj = new Date(upTime);
+
+          if (!isNaN(downDateObj.getTime()) && !isNaN(upDateObj.getTime())) {
+          var diffMs = upDateObj - downDateObj;
+          var diffSeconds = diffMs / 1000; // dari ms ke detik
+
+          // pembulatan ke 2 angka di belakang koma
+          duration = diffSeconds 
+
+          // logDebug(sheet, 'Duration in hours:', duration);
+          } else {
+            logDebug(sheet, 'Invalid date parsing', downTime, upTime);
+          }
+
+          break;
+        } 
+      }
+    }
+
+    sheet.appendRow([
+      timestampLog,
+      data.service || "-",
+      data.status || "-",
+      downtimeStart,
+      recoveryTime,
+      duration,
+      data.note || "-"
+    ]);
+
+    //logDebug(sheet, 'Data logged successfully');
+    //return ContentService.createTextOutput('Success: Data logged');
+
+  } catch (err) {
+    logDebug(sheet, 'Error during doPost', err.toString());
+    return ContentService.createTextOutput('Error: ' + err.toString());
+  }
+}
+
+function logDebug(sheet, msg, data1, data2, data3) {
+  sheet.appendRow(['DEBUG', msg, data1 || '', data2 || '', data3 || '', '', '']);
+}
