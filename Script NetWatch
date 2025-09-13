@@ -1,0 +1,35 @@
+//on UP events
+:global curDate [/system clock get date]
+:global curTime [/system clock get time]
+
+:log info ("SLA Service: BB Berita Status: UP Date: " .$curDate. " Time: ".$curTime)
+
+/tool fetch url="your_GAS_API" \
+http-method=post \
+http-data=("{\"service\":\"BB Berita\",\"status\":\"UP\",\"downtime_date\":\"-\",\"downtime_time\":\"-\",\"recovery_date\":\"$curDate\",\"recovery_time\":\"$curTime\",\"duration\":\"-\",\"note\":\"Ping reachable\"}") \
+http-header-field="Content-Type: application/json" \
+mode=http \
+keep-result=no
+
+/tool fetch url="https://api.telegram.org/your_bot_token/sendMessage\?chat_id=your_chat_id&text=BB Berita UP" keep-result=no;
+
+//on DOWN events
+:global curDate [/system clock get date]
+:global curTime [/system clock get time]
+
+:log info ("SLA Service: BB Berita Status: DOWN Date: " .$curDate. " Time: ".$curTime)
+
+/tool fetch url="your_GAS_API" \
+http-method=post \
+http-data=("{\"service\":\"BB Berita\",\"status\":\"DOWN\",\"downtime_date\":\"$curDate\",\"downtime_time\":\"$curTime\",\"recovery_date\":\"-\",\"recovery_time\":\"-\",\"duration\":\"-\",\"note\":\"Ping unreachable\"}") \
+http-header-field="Content-Type: application/json" \
+mode=http \
+keep-result=no
+
+/tool fetch url="https://api.telegram.org/your_bot_token/sendMessage\?chat_id=your_chat_id&text=BB Berita DOWN" keep-result=no;
+
+notes:
+ganti 'BB Berita' dengan nama servismu
+ganti 'your_GAS_API' dengan alamat script GASmu
+ganti 'your_bot_token' dengan token bot telegrammu, cth: bot87xxxx:xxxxxx
+ganti 'your_chat_id' dengan chat id tujuanmu, cth: -41xxxxx
